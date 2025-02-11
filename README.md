@@ -3,16 +3,19 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/boniyeamincse/boni-fort-recon.svg)](https://github.com/boniyeamincse/boni-fort-recon/stargazers)
 
-![Banner](https://i.ibb.co/m0b6W2H/security-scan-footer.png)
-
-## 📌 Table of Contents
-- [Features](#-features)
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Configuration](#-configuration)
-- [Advanced Usage](#-advanced-usage)
-- [Contributing](#-contributing)
-- [License](#-license)
+## 📋 Project Structure
+```
+boni-fort-recon/
+├── Auto-Recon/
+│   ├── auto-recon.sh         # Main script
+│   ├── config.conf          # Configuration file
+│   ├── notify.sh           # Notification handler
+│   └── tool_requirements.md # Tool dependencies
+├── .github/
+│   └── workflows/
+│       └── ci.yml          # CI pipeline
+└── README.md               # Documentation
+```
 
 ## 🌟 Features
 - Automated subdomain enumeration
@@ -20,86 +23,167 @@
 - Port scanning with Naabu/Nmap integration
 - Vulnerability assessment (Nikto & Nmap scripts)
 - Parallel processing for fast execution
-- Comprehensive reporting (HTML/Text/Markdown)
-- Resume capability for interrupted scans
+- Comprehensive reporting
+- Multi-distro support (APT, YUM, DNF, Pacman, etc.)
 
 ## 📦 Installation
 
-### System Requirements
-- OS: Linux (Debian/Ubuntu recommended)
-- RAM: 4GB+ (8GB recommended)
-- Storage: 20GB+ free space
-- Network: Stable internet connection
+### Prerequisites
+- Linux (Debian/Ubuntu/RHEL/Arch)
+- Root privileges
+- Internet connection
 
-### Step-by-Step Installation
-
-1. **Clone Repository**
+### Quick Install
 ```bash
 git clone https://github.com/boniyeamincse/boni-fort-recon.git
 cd boni-fort-recon
+chmod +x Auto-Recon/auto-recon.sh
+sudo ./Auto-Recon/auto-recon.sh --install-deps
 ```
 
-2. **Install Dependencies**
+### Package Manager Support
+1. **APT (Debian/Ubuntu)**
 ```bash
-pip install -r requirements.txt
+sudo apt update && sudo apt install -y golang git python3 python3-pip nmap nikto libpcap-dev
 ```
 
+2. **DNF (Fedora/RHEL 8+)**
+```bash
+sudo dnf install -y golang git python3 python3-pip nmap nikto libpcap-devel
+```
 
-For Debian/Ubuntu
-sudo apt update && sudo apt install -y \
-golang git python3 python3-pip \
-nmap nikto libpcap-dev
-bash
-echo 'export GOPATH=$HOME/go' >> ~/.bashrc
-echo 'export PATH=$PATH:$GOPATH/bin' >> ~/.bashrc
-source ~/.bashrc
-bash
-chmod +x auto-recon.sh
-sudo ./auto-recon.sh --install-deps
-bash
-./auto-recon.sh --version
-bash
-Quick scan (fast results)
+3. **YUM (CentOS/RHEL 7)**
+```bash
+sudo yum install -y golang git python3 python3-pip nmap nikto libpcap-devel
+```
+
+4. **Pacman (Arch)**
+```bash
+sudo pacman -S --noconfirm go git python python-pip nmap nikto libpcap
+```
+
+## 🚀 Usage
+
+### Basic Scan
+```bash
+sudo ./auto-recon.sh -d example.com
+```
+
+### Quick Scan
+```bash
 sudo ./auto-recon.sh -d example.com -q
-Full scan (comprehensive analysis)
-sudo ./auto-recon.sh -d example.com -f -v -n
-bash
-./auto-recon.sh -d target.com -o initial_scan -q
-bash
-./auto-recon.sh -d webapp.com -p "80,443,8080" -v -t 100
-bash
-./auto-recon.sh -d company.com -f -n -p "1-65535" -w 60
-ini
-[performance]
-threads = 100
-timeout = 15
-[scanning]
-quick_ports = 80,443,8080,8443
-full_ports = 1-65535
-[notifications]
-slack_webhook = "YOUR_SLACK_WEBHOOK"
-discord_webhook = "YOUR_DISCORD_WEBHOOK"
+```
+
+### Full Scan
+```bash
+sudo ./auto-recon.sh -d example.com -f -n -v
+```
+
+### Custom Port Scan
+```bash
+sudo ./auto-recon.sh -d example.com -p "80,443,8080" -t 100
+```
+
+## ⚙️ Configuration
+
+### Main Configuration (config.conf)
+```ini
+# Performance settings
+MAX_THREADS=100
+TIMEOUT=15
+RATE_LIMIT_REQUESTS=200
+
+# Port lists
+QUICK_PORTS="80,443,8080,8443"
+WEB_PORTS="80,443,8080,8443,3000,5000,8000"
+
+# Tool settings
+SUBFINDER_THREADS=100
+AMASS_TIMEOUT=10
+HTTPX_RATE=150
+NAABU_RATE=1000
+```
+
+### Notifications (notify.sh)
+```bash
+# Configure webhooks
+SLACK_WEBHOOK="your_slack_webhook"
+DISCORD_WEBHOOK="your_discord_webhook"
+```
+
+## 📊 Output Structure
+```
 results/
-├── target.com_20240318_120130/
-│ ├── subdomains/ # Raw subdomain data
-│ ├── active/ # Verified targets
-│ ├── scans/ # Scan results
-│ ├── report.html # HTML summary
-│ └── timeline.log # Execution log
-bash
-sudo chown -R $USER:$USER /path/to/results
-bash
+├── target.com_20240318/
+│   ├── subdomains/        # Subdomain results
+│   ├── active/           # Active hosts
+│   ├── scanning/        # Scan results
+│   └── vulnerabilities/ # Security findings
+```
+
+## 🛠️ Command Line Options
+```
+Options:
+  -d    Target domain
+  -o    Output directory
+  -p    Ports to scan
+  -t    Number of threads
+  -w    Timeout in seconds
+  -v    Enable vulnerability scanning
+  -n    Enable Nmap scanning
+  -s    Nmap scan type
+  -q    Quick scan mode
+  -f    Full scan mode
+  -h    Show help message
+```
+
+## 🔄 CI/CD Pipeline
+The project includes GitHub Actions workflow:
+```yaml
+name: CI Pipeline
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v4
+    - name: Run tests
+      run: ./auto-recon.sh -d example.com -q
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+1. **Permission Denied**
+```bash
+sudo chmod +x auto-recon.sh
+```
+
+2. **Missing Dependencies**
+```bash
 sudo ./auto-recon.sh --install-deps
-bash
-Reduce threads and increase timeout
-./auto-recon.sh -d target.com -t 30 -w 60
-This README includes:
-1. Comprehensive installation instructions
-Detailed user guide with examples
-3. Configuration reference
-Troubleshooting section
-Clear output structure visualization
-Contribution guidelines
-License information
-Responsive badges and banners
-Would you like me to add any specific use cases or configuration examples?
+```
+
+3. **Network Issues**
+```bash
+sudo ./auto-recon.sh -d example.com -w 60 -t 30
+```
+
+## 🤝 Contributing
+1. Fork the repository
+2. Create feature branch
+3. Commit changes
+4. Push to branch
+5. Create Pull Request
+
+## 📝 License
+MIT License - See [LICENSE](LICENSE) for details
+
+## 👤 Author
+**Boni Yeamin**
+- GitHub: [@boniyeamincse](https://github.com/boniyeamincse)
+
+---
+Made with ❤️ by Boni Yeamin
