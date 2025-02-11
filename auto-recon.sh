@@ -38,6 +38,28 @@ check_requirements() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
         echo -e "${GREEN}[+] Detected OS: $NAME${NC}"
+        
+        # Detect package manager
+        declare -A pkg_mgr=(
+            ["debian"]="apt"
+            ["ubuntu"]="apt"
+            ["fedora"]="dnf"
+            ["centos"]="yum"
+            ["rhel"]="yum"
+            ["opensuse"]="zypper"
+            ["arch"]="pacman"
+            ["gentoo"]="emerge"
+            ["nixos"]="nix-env"
+        )
+        
+        pkg_manager=${pkg_mgr[$ID]}
+        
+        # Special cases
+        command -v dnf >/dev/null 2>&1 && pkg_manager="dnf"
+        command -v snap >/dev/null 2>&1 && snap_available=true
+        command -v flatpak >/dev/null 2>&1 && flatpak_available=true
+        
+        echo -e "${GREEN}[+] Using package manager: $pkg_manager${NC}"
     else
         echo -e "${RED}[-] Could not detect OS${NC}"
         exit 1
@@ -51,9 +73,9 @@ check_requirements() {
     
     # Required tools and their installation commands
     declare -A tools=(
-        ["go"]="apt install -y golang"
-        ["nmap"]="apt install -y nmap"
-        ["nikto"]="apt install -y nikto"
+        ["go"]="install_go"
+        ["nmap"]="install_pkg nmap"
+        ["nikto"]="install_pkg nikto"
         ["subfinder"]="go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"
         ["amass"]="go install github.com/owasp-amass/amass/v3/...@latest"
         ["dnsx"]="go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest"
@@ -63,11 +85,28 @@ check_requirements() {
         ["findomain"]="curl -LO https://github.com/findomain/findomain/releases/latest/download/findomain-linux && chmod +x findomain-linux && mv findomain-linux /usr/bin/findomain"
     )
     
+    # Package manager commands
+    declare -A pkg_commands=(
+        ["apt"]="install -y"
+        ["dnf"]="install -y"
+        ["yum"]="install -y"
+        ["zypper"]="install -y"
+        ["pacman"]="-S --noconfirm"
+        ["emerge"]="-a"
+        ["nix-env"]="-i"
+    )
+    
+    # Package name variations
+    declare -A pkg_names=(
+        ["libpcap-dev"]="libpcap-devel:yum,dnf; libpcap:zypper,pacman"
+        ["build-essential"]="base-devel:pacman; gcc make:arch; @development:zypper"
+    )
+    
     # Check and install tools
     for tool in "${!tools[@]}"; do
         if ! command -v "$tool" &> /dev/null; then
             echo -e "${YELLOW}[*] Installing $tool...${NC}"
-            eval "${tools[$tool]}" &>/dev/null
+            ${tools[$tool]} &>/dev/null
             if ! command -v "$tool" &> /dev/null; then
                 echo -e "${RED}[-] Failed to install $tool${NC}"
                 exit 1
@@ -82,6 +121,75 @@ check_requirements() {
         echo 'export GOPATH=$HOME/go' >> ~/.bashrc
         echo 'export PATH=$PATH:$GOPATH/bin' >> ~/.bashrc
         source ~/.bashrc
+    fi
+}
+
+# Package installation functions
+install_pkg() {
+    local pkg=$1
+    local pkg_name=$pkg
+    
+    # Handle package name variations
+    if [ ${pkg_names[$pkg]+_} ]; then
+        IFS=';' read -ra names <<< "${pkg_names[$pkg]}"
+        for entry in "${names[@]}"; do
+            IFS=':' read -ra parts <<< "$entry"
+            if [[ " ${parts[1]} " =~ " $pkg_manager " ]]; then
+                pkg_name=${parts[0]}
+                break
+            fi
+        done
+    fi
+    
+    case $pkg_manager in
+        apt|dnf|yum|zypper|pacman|emerge|nix-env)
+            sudo $pkg_manager ${pkg_commands[$pkg_manager]} $pkg_name
+            ;;
+        *)
+            echo -e "${RED}[-] Unsupported package manager: $pkg_manager${NC}"
+            exit 1
+            ;;
+    esac
+}
+
+install_go() {
+    case $pkg_manager in
+        apt|dnf|yum|zypper|pacman)
+            install_pkg golang
+            ;;
+        emerge)
+            sudo emerge --ask n go
+            ;;
+        nix-env)
+            nix-env -i go
+            ;;
+        *)
+            # Fallback to manual installation
+            curl -OL https://golang.org/dl/go1.20.linux-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.20.linux-amd64.tar.gz
+            ;;
+    esac
+}
+
+# Universal package installation handler
+universal_install() {
+    local pkg=$1
+    
+    # Try system package manager first
+    install_pkg $pkg
+    
+    # Fallback to universal formats
+    if ! command -v $pkg &> /dev/null; then
+        if [ "$snap_available" = true ]; then
+            sudo snap install $pkg
+        elif [ "$flatpak_available" = true ]; then
+            flatpak install flathub $pkg
+        else
+            # AppImage fallback
+            wget https://github.com/$(curl -s https://api.github.com/repos/$pkg/releases/latest | grep browser_download_url | grep AppImage | cut -d '"' -f 4)
+            chmod +x *.AppImage
+            sudo mv *.AppImage /usr/local/bin/$pkg
+        fi
     fi
 }
 
