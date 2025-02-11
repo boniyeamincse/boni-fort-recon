@@ -620,3 +620,8 @@ main() {
 
 # Run main function
 main "$@"
+
+# Add security headers
+SECURITY_HEADERS="-H 'X-Content-Type-Options: nosniff' \
+                  -H 'X-Frame-Options: DENY' \
+                  -H 'Content-Security-Policy: default-src 'self''"

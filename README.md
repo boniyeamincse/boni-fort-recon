@@ -8,10 +8,9 @@
 ## 📌 Table of Contents
 - [Features](#-features)
 - [Installation](#-installation)
-- [User Guide](#-user-guide)
+- [Quick Start](#-quick-start)
 - [Configuration](#-configuration)
-- [Output Structure](#-output-structure)
-- [Troubleshooting](#-troubleshooting)
+- [Advanced Usage](#-advanced-usage)
 - [Contributing](#-contributing)
 - [License](#-license)
 
